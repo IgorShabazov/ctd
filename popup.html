@@ -43,7 +43,9 @@
     .participant-details { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: #666; margin-top: 4px; }
     .detail-item { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
     .participant-status { color: #999; font-style: italic; }
+    .participant-status-badge { display: inline-block; }
     .guest-item .participant-status { color: #1976d2; }
+    .all-participants .participant-item { padding-left: 12px; }
   </style>
 </head>
 <body>
@@ -65,18 +67,8 @@
   <div id="resultContainer" class="results" style="display:none;">
     
     <div class="category">
-      <h4>🟢 ВКЗ (<span id="countPresent">0</span>)</h4>
-      <ul id="listPresent" class="present"></ul>
-    </div>
-
-    <div class="category" id="blockLeft" style="display:none;">
-      <h4>⚠️ Вийшли (<span id="countLeft">0</span>)</h4>
-      <ul id="listLeft" class="left"></ul>
-    </div>
-
-    <div class="category">
-      <h4>🔴 Відсутні (<span id="countAbsent">0</span>)</h4>
-      <ul id="listAbsent" class="absent"></ul>
+      <h4>Список учасників (<span id="totalCount">0</span>)</h4>
+      <ul id="listAll" class="all-participants"></ul>
     </div>
 
     <div class="category" id="blockGuests" style="display:none;">

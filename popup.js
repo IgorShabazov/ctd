@@ -227,9 +227,14 @@ function addGuestToGroup(guestMeetName, groupName, buttonElement) {
 function displayResults(present, left, absent, guests) {
   resultContainer.style.display = 'block';
 
-  fillList('listPresent', 'countPresent', present, '👤', 'ВКЗ');
-  fillList('listLeft', 'countLeft', left, '⚠️', 'Вийшли');
-  fillList('listAbsent', 'countAbsent', absent, '❌', 'Відсутні');
+  // Об'єднуємо всіх учасників в один список зі статусами
+  const allParticipants = [
+    ...present.map(p => ({ ...p, status: 'present', statusText: 'ВКЗ', icon: '🟢', color: '#2e7d32' })),
+    ...left.map(p => ({ ...p, status: 'left', statusText: 'Вийшли', icon: '🟡', color: '#f57c00' })),
+    ...absent.map(p => ({ ...p, status: 'absent', statusText: 'Відсутні', icon: '🔴', color: '#c62828' }))
+  ];
+  
+  fillUnifiedList('listAll', 'totalCount', allParticipants);
   
   // ЛОГІКА ВІДОБРАЖЕННЯ ГОСТЕЙ З КНОПКОЮ
   const ulGuests = document.getElementById('listGuests');
@@ -272,8 +277,6 @@ function displayResults(present, left, absent, guests) {
     blockGuests.style.display = 'none';
     ulGuests.innerHTML = '';
   }
-
-  document.getElementById('blockLeft').style.display = left.length > 0 ? 'block' : 'none';
 }
 
 // Функція для екранування HTML
@@ -281,6 +284,112 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Функція для відображення об'єднаного списку зі статусами
+function fillUnifiedList(listId, countId, array) {
+  const listElement = document.getElementById(listId);
+  const countElement = document.getElementById(countId);
+  
+  if (array.length === 0) {
+    listElement.innerHTML = '';
+    countElement.innerText = 0;
+    return;
+  }
+  
+  // Групуємо учасників за підгрупами
+  const groupedBySubGroup = {};
+  
+  array.forEach(participant => {
+    const subGroup = (participant.subGroup || '').trim();
+    const groupKey = subGroup || '_no_subgroup';
+    
+    if (!groupedBySubGroup[groupKey]) {
+      groupedBySubGroup[groupKey] = [];
+    }
+    groupedBySubGroup[groupKey].push(participant);
+  });
+  
+  // Створюємо HTML з блоками для кожної підгрупи
+  let html = '';
+  
+  // Спочатку показуємо підгрупи (сортуємо за назвою)
+  const subGroupKeys = Object.keys(groupedBySubGroup).filter(k => k !== '_no_subgroup').sort();
+  
+  subGroupKeys.forEach(subGroupKey => {
+    const subGroupName = subGroupKey;
+    const participants = groupedBySubGroup[subGroupKey];
+    
+    html += `<li class="subgroup-block">
+      <div class="subgroup-header">📁 ${escapeHtml(subGroupName)} (${participants.length})</div>
+      <ul class="subgroup-participants">`;
+    
+    participants.forEach(participant => {
+      const fullName = escapeHtml(participant.fullName || participant.meetName || '');
+      const meetName = escapeHtml(participant.meetName || '');
+      const note = escapeHtml(participant.note || '');
+      const statusText = participant.statusText || '';
+      const icon = participant.icon || '👤';
+      const color = participant.color || '#666';
+      
+      let details = [];
+      if (note) details.push(`Примітка: ${note}`);
+      if (meetName && meetName !== fullName) details.push(`Логін: ${meetName}`);
+      
+      html += `
+        <li class="participant-item" style="border-left: 3px solid ${color};">
+          <div class="participant-main">
+            <span class="participant-icon">${icon}</span>
+            <span class="participant-name" style="color: ${color}; font-weight: bold;">${fullName}</span>
+            <span class="participant-status-badge" style="background: ${color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 8px;">${statusText}</span>
+          </div>
+          ${details.length > 0 ? `
+          <div class="participant-details">
+            ${details.map(d => `<span class="detail-item">${d}</span>`).join('')}
+          </div>
+          ` : ''}
+        </li>
+      `;
+    });
+    
+    html += `</ul></li>`;
+  });
+  
+  // Потім показуємо учасників без підгрупи
+  if (groupedBySubGroup['_no_subgroup']) {
+    const participants = groupedBySubGroup['_no_subgroup'];
+    
+    participants.forEach(participant => {
+      const fullName = escapeHtml(participant.fullName || participant.meetName || '');
+      const meetName = escapeHtml(participant.meetName || '');
+      const note = escapeHtml(participant.note || '');
+      const statusText = participant.statusText || '';
+      const icon = participant.icon || '👤';
+      const color = participant.color || '#666';
+      
+      let details = [];
+      if (note) details.push(`Примітка: ${note}`);
+      if (meetName && meetName !== fullName) details.push(`Логін: ${meetName}`);
+      
+      html += `
+        <li class="participant-item" style="border-left: 3px solid ${color};">
+          <div class="participant-main">
+            <span class="participant-icon">${icon}</span>
+            <span class="participant-name" style="color: ${color}; font-weight: bold;">${fullName}</span>
+            <span class="participant-status-badge" style="background: ${color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 8px;">${statusText}</span>
+          </div>
+          ${details.length > 0 ? `
+          <div class="participant-details">
+            ${details.map(d => `<span class="detail-item">${d}</span>`).join('')}
+          </div>
+          ` : ''}
+        </li>
+      `;
+    });
+  }
+  
+  listElement.innerHTML = html;
+  countElement.innerText = array.length;
 }
 
 function fillList(listId, countId, array, icon, statusText) {
