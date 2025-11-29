@@ -4,7 +4,18 @@ const resultContainer = document.getElementById('resultContainer');
 const deleteBtn = document.getElementById('deleteBtn');
 const editBtn = document.getElementById('editBtn');
 
+// Змінна для зберігання інтервалу автоматичної перевірки
+let autoCheckInterval = null;
+
 document.addEventListener('DOMContentLoaded', loadGroups);
+
+// Очищаємо інтервал при закритті вікна
+window.addEventListener('beforeunload', () => {
+    if (autoCheckInterval) {
+        clearInterval(autoCheckInterval);
+        autoCheckInterval = null;
+    }
+});
 
 function loadGroups() {
   chrome.storage.local.get(null, (items) => {
@@ -59,7 +70,20 @@ groupSelect.addEventListener('change', (e) => {
     if (e.target.value) {
         editBtn.style.display = 'block';
         deleteBtn.style.display = 'none';
-        document.getElementById('checkBtn').click();
+        // Зупиняємо попередній інтервал, якщо він існує
+        if (autoCheckInterval) {
+            clearInterval(autoCheckInterval);
+        }
+        // Запускаємо перевірку одразу
+        performCheck();
+        // Запускаємо автоматичну перевірку кожні 3 секунди
+        autoCheckInterval = setInterval(performCheck, 3000);
+    } else {
+        // Якщо група не обрана, зупиняємо автоматичну перевірку
+        if (autoCheckInterval) {
+            clearInterval(autoCheckInterval);
+            autoCheckInterval = null;
+        }
     }
 });
 
@@ -90,10 +114,17 @@ editBtn.addEventListener('click', async () => {
     }
 });
 
-// 5. ЛОГІКА ПЕРЕВІРКИ
-document.getElementById('checkBtn').addEventListener('click', async () => {
+// 5. ЛОГІКА ПЕРЕВІРКИ (автоматична)
+async function performCheck() {
   const groupName = groupSelect.value;
-  if (!groupName) return;
+  if (!groupName) {
+    // Якщо група не обрана, зупиняємо автоматичну перевірку
+    if (autoCheckInterval) {
+      clearInterval(autoCheckInterval);
+      autoCheckInterval = null;
+    }
+    return;
+  }
 
   chrome.storage.local.get(groupName, async (data) => {
     const savedTemplateObjects = data[groupName] || [];
@@ -106,7 +137,10 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     const meetNamesForMatching = savedTemplateObjects.map(obj => obj.meetName); 
     
     const response = await getParticipantsFromTab();
-    if (!response) return alert("Помилка доступу до вкладки Meet.");
+    if (!response) {
+      // Не показуємо помилку при автоматичній перевірці, щоб не заважати
+      return;
+    }
 
     const currentList = response.current;
     const historyList = response.history; 
@@ -122,7 +156,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     deleteBtn.style.display = 'block';
     deleteBtn.onclick = () => deleteGroup(groupName);
   });
-});
+}
 
 async function getParticipantsFromTab() {
   try {
@@ -181,7 +215,7 @@ function addGuestToGroup(guestMeetName, groupName, buttonElement) {
                 buttonElement.disabled = true;
                 buttonElement.style.background = "#4CAF50"; 
             }
-            document.getElementById('checkBtn').click(); 
+            performCheck(); 
         });
     });
 }
