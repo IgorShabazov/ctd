@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    body { width: 360px; font-family: sans-serif; padding: 10px; }
+    body { width: 100%; max-width: 500px; font-family: sans-serif; padding: 15px; margin: 0 auto; }
     h3 { margin-top: 0; text-align: center; margin-bottom: 5px;}
     
     input, select { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
@@ -18,7 +18,7 @@
     .category h4 { margin: 5px 0; font-size: 14px; border-bottom: 1px solid #eee;}
     
     ul { list-style: none; padding: 0; margin: 0; }
-    li { padding: 3px 0; border-bottom: 1px solid #eee;}
+    li { padding: 8px 0; border-bottom: 1px solid #eee;}
 
     /* Кольори статусів */
     .present { color: #2e7d32; font-weight: bold; }
@@ -27,6 +27,16 @@
     .guest { color: #1976d2; font-style: italic;}
     
     .status-msg { text-align: center; color: #666; font-size: 11px; margin-bottom: 10px;}
+    
+    /* Стилі для відображення учасників */
+    .participant-item { padding: 10px 0; }
+    .participant-main { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .participant-icon { font-size: 16px; }
+    .participant-name { font-weight: 600; flex: 1; }
+    .participant-details { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: #666; margin-top: 4px; }
+    .detail-item { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+    .participant-status { color: #999; font-style: italic; }
+    .guest-item .participant-status { color: #1976d2; }
   </style>
 </head>
 <body>
@@ -49,7 +59,7 @@
   <div id="resultContainer" class="results" style="display:none;">
     
     <div class="category">
-      <h4>🟢 На уроці (<span id="countPresent">0</span>)</h4>
+      <h4>🟢 ВКЗ (<span id="countPresent">0</span>)</h4>
       <ul id="listPresent" class="present"></ul>
     </div>
 

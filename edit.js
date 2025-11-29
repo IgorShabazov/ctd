@@ -7,6 +7,23 @@ function initEditor() {
     const urlParams = new URLSearchParams(window.location.search);
     currentGroupName = urlParams.get('group');
 
+    // Якщо параметр не знайдено в URL, спробуємо прочитати з storage
+    if (!currentGroupName) {
+        chrome.storage.local.get('sidePanelGroup', (data) => {
+            if (data.sidePanelGroup) {
+                currentGroupName = data.sidePanelGroup;
+                loadGroupData();
+            } else {
+                document.getElementById('editTitle').innerText = 'Помилка: Група не знайдена.';
+            }
+        });
+        return;
+    }
+
+    loadGroupData();
+}
+
+function loadGroupData() {
     if (!currentGroupName) {
         document.getElementById('editTitle').innerText = 'Помилка: Група не знайдена.';
         return;
@@ -20,6 +37,22 @@ function initEditor() {
     });
     
     document.getElementById('saveEditBtn').addEventListener('click', saveChanges);
+    
+    // Кнопка "Назад"
+    document.getElementById('backBtn').addEventListener('click', async () => {
+        try {
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tabs[0]) {
+                await chrome.sidePanel.setOptions({
+                    path: 'popup.html',
+                    enabled: true
+                });
+                await chrome.sidePanel.open({ windowId: tabs[0].windowId });
+            }
+        } catch (error) {
+            console.error('Помилка повернення:', error);
+        }
+    });
 }
 
 // Функція для екранування HTML
@@ -217,14 +250,27 @@ function saveChanges(closeWindow = true) {
     let data = {};
     data[currentGroupName] = currentGroupData;
 
-    chrome.storage.local.set(data, () => {
+    chrome.storage.local.set(data, async () => {
         if (chrome.runtime.lastError) {
             alert("Помилка збереження: " + chrome.runtime.lastError.message);
             return;
         }
         if (closeWindow) {
             alert("Зміни успішно збережено!");
-            window.close();
+            // Повертаємося до popup.html в side panel
+            try {
+                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tabs[0]) {
+                    await chrome.sidePanel.setOptions({
+                        path: 'popup.html',
+                        enabled: true
+                    });
+                    await chrome.sidePanel.open({ windowId: tabs[0].windowId });
+                }
+            } catch (error) {
+                console.error('Помилка повернення:', error);
+                window.close();
+            }
         } else {
             renderTable(); 
         }

@@ -66,16 +66,28 @@ groupSelect.addEventListener('change', (e) => {
 
 
 // 4. Кнопка "Редагувати"
-editBtn.addEventListener('click', () => {
+editBtn.addEventListener('click', async () => {
     const selectedGroupName = groupSelect.value;
     if (!selectedGroupName) return;
 
-    chrome.windows.create({
-        url: `edit.html?group=${encodeURIComponent(selectedGroupName)}`,
-        type: "popup",
-        width: 650,
-        height: 500
-    });
+    try {
+        // Отримуємо поточне вікно
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs[0]) return;
+        
+        const windowId = tabs[0].windowId;
+        
+        // Встановлюємо шлях для side panel з параметром групи
+        await chrome.sidePanel.setOptions({
+            path: `edit.html?group=${encodeURIComponent(selectedGroupName)}`,
+            enabled: true
+        });
+        
+        // Відкриваємо side panel
+        await chrome.sidePanel.open({ windowId: windowId });
+    } catch (error) {
+        console.error('Помилка відкриття side panel:', error);
+    }
 });
 
 // 5. ЛОГІКА ПЕРЕВІРКИ
@@ -85,7 +97,11 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
 
   chrome.storage.local.get(groupName, async (data) => {
     const savedTemplateObjects = data[groupName] || [];
-    const nameMap = Object.fromEntries(savedTemplateObjects.map(obj => [obj.meetName, obj.fullName]));
+    
+    // Створюємо мапу для швидкого пошуку об'єктів за meetName
+    const participantsMap = Object.fromEntries(
+      savedTemplateObjects.map(obj => [obj.meetName, obj])
+    );
     
     const meetNamesForMatching = savedTemplateObjects.map(obj => obj.meetName); 
     
@@ -95,16 +111,13 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     const currentList = response.current;
     const historyList = response.history; 
 
-    const present = meetNamesForMatching.filter(mName => currentList.includes(mName));
-    const left = meetNamesForMatching.filter(mName => !currentList.includes(mName) && historyList.includes(mName));
-    const absent = meetNamesForMatching.filter(mName => !currentList.includes(mName) && !historyList.includes(mName));
+    // Фільтруємо об'єкти за статусом
+    const present = savedTemplateObjects.filter(obj => currentList.includes(obj.meetName));
+    const left = savedTemplateObjects.filter(obj => !currentList.includes(obj.meetName) && historyList.includes(obj.meetName));
+    const absent = savedTemplateObjects.filter(obj => !currentList.includes(obj.meetName) && !historyList.includes(obj.meetName));
     const guests = currentList.filter(mName => !meetNamesForMatching.includes(mName));
 
-    const displayPresent = present.map(mName => nameMap[mName] || mName);
-    const displayLeft = left.map(mName => nameMap[mName] || mName);
-    const displayAbsent = absent.map(mName => nameMap[mName] || mName);
-
-    displayResults(displayPresent, displayLeft, displayAbsent, guests);
+    displayResults(present, left, absent, guests);
     
     deleteBtn.style.display = 'block';
     deleteBtn.onclick = () => deleteGroup(groupName);
@@ -180,9 +193,9 @@ function addGuestToGroup(guestMeetName, groupName, buttonElement) {
 function displayResults(present, left, absent, guests) {
   resultContainer.style.display = 'block';
 
-  fillList('listPresent', 'countPresent', present, '👤');
-  fillList('listLeft', 'countLeft', left, '⚠️');
-  fillList('listAbsent', 'countAbsent', absent, '❌');
+  fillList('listPresent', 'countPresent', present, '👤', 'ВКЗ');
+  fillList('listLeft', 'countLeft', left, '⚠️', 'Вийшли');
+  fillList('listAbsent', 'countAbsent', absent, '❌', 'Відсутні');
   
   // ЛОГІКА ВІДОБРАЖЕННЯ ГОСТЕЙ З КНОПКОЮ
   const ulGuests = document.getElementById('listGuests');
@@ -197,12 +210,18 @@ function displayResults(present, left, absent, guests) {
       const escapedName = escapeHtml(mName);
       const escapedAttr = escapeHtml(mName).replace(/"/g, '&quot;');
       return `
-      <li data-meet-name="${escapedAttr}">
-        🔵 ${escapedName} 
-        <button class="add-guest-btn" data-meet-name="${escapedAttr}" 
-                style="float:right; padding: 2px 5px; font-size:10px; border-radius:3px; background:#4CAF50; color:white;">
-          Додати
-        </button>
+      <li data-meet-name="${escapedAttr}" class="participant-item guest-item">
+        <div class="participant-main">
+          <span class="participant-icon">🔵</span>
+          <span class="participant-name">${escapedName}</span>
+          <button class="add-guest-btn" data-meet-name="${escapedAttr}" 
+                  style="float:right; padding: 2px 5px; font-size:10px; border-radius:3px; background:#4CAF50; color:white;">
+            Додати
+          </button>
+        </div>
+        <div class="participant-details">
+          <span class="participant-status">Гість</span>
+        </div>
       </li>
     `;
     }).join('');
@@ -230,9 +249,55 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function fillList(listId, countId, array, icon) {
-  document.getElementById(listId).innerHTML = array.map(n => `<li>${icon} ${escapeHtml(n)}</li>`).join('');
-  document.getElementById(countId).innerText = array.length;
+function fillList(listId, countId, array, icon, statusText) {
+  const listElement = document.getElementById(listId);
+  const countElement = document.getElementById(countId);
+  
+  if (array.length === 0) {
+    listElement.innerHTML = '';
+    countElement.innerText = 0;
+    return;
+  }
+  
+  // Перевіряємо, чи це масив об'єктів чи рядків
+  const isObjectArray = array.length > 0 && typeof array[0] === 'object';
+  
+  listElement.innerHTML = array.map(item => {
+    let participant;
+    if (isObjectArray) {
+      participant = item;
+    } else {
+      // Якщо це рядок (для зворотної сумісності)
+      participant = { fullName: item, meetName: item, subGroup: '', note: '' };
+    }
+    
+    const fullName = escapeHtml(participant.fullName || participant.meetName || '');
+    const meetName = escapeHtml(participant.meetName || '');
+    const subGroup = escapeHtml(participant.subGroup || '');
+    const note = escapeHtml(participant.note || '');
+    
+    let details = [];
+    if (subGroup) details.push(`Підгрупа: ${subGroup}`);
+    if (note) details.push(`Примітка: ${note}`);
+    if (meetName && meetName !== fullName) details.push(`Логін: ${meetName}`);
+    
+    return `
+      <li class="participant-item">
+        <div class="participant-main">
+          <span class="participant-icon">${icon}</span>
+          <span class="participant-name">${fullName}</span>
+        </div>
+        ${details.length > 0 ? `
+        <div class="participant-details">
+          ${details.map(d => `<span class="detail-item">${d}</span>`).join('')}
+          <span class="participant-status">${statusText}</span>
+        </div>
+        ` : `<div class="participant-details"><span class="participant-status">${statusText}</span></div>`}
+      </li>
+    `;
+  }).join('');
+  
+  countElement.innerText = array.length;
 }
 
 function deleteGroup(name) {
