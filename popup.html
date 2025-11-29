@@ -19,6 +19,13 @@
     
     ul { list-style: none; padding: 0; margin: 0; }
     li { padding: 8px 0; border-bottom: 1px solid #eee;}
+    
+    /* Стилі для підгруп */
+    .subgroup-block { margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; padding: 0; background: #fafafa; }
+    .subgroup-header { padding: 8px 12px; background: #e8f5e9; border-bottom: 1px solid #ddd; font-weight: bold; font-size: 13px; color: #2e7d32; border-radius: 5px 5px 0 0; }
+    .subgroup-participants { margin: 0; padding: 0; }
+    .subgroup-participants .participant-item { padding: 8px 12px; border-bottom: 1px solid #eee; margin: 0; }
+    .subgroup-participants .participant-item:last-child { border-bottom: none; }
 
     /* Кольори статусів */
     .present { color: #2e7d32; font-weight: bold; }
@@ -79,6 +86,16 @@
   </div>
 
   <button id="deleteBtn" class="delete" style="display:none;">Видалити групу</button>
+  
+  <hr style="margin-top: 20px;">
+  
+  <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+    <button id="exportBtn" style="flex: 1; background: #388e3c;">📥 Експорт списків</button>
+    <button id="importBtn" style="flex: 1; background: #f57c00;">📤 Імпорт списків</button>
+  </div>
+  
+  <input type="file" id="importFile" accept=".json" style="display: none;">
+  
   <script src="popup.js"></script>
 </body>
 </html>

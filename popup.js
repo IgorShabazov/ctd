@@ -296,7 +296,10 @@ function fillList(listId, countId, array, icon, statusText) {
   // Перевіряємо, чи це масив об'єктів чи рядків
   const isObjectArray = array.length > 0 && typeof array[0] === 'object';
   
-  listElement.innerHTML = array.map(item => {
+  // Групуємо учасників за підгрупами
+  const groupedBySubGroup = {};
+  
+  array.forEach(item => {
     let participant;
     if (isObjectArray) {
       participant = item;
@@ -305,32 +308,88 @@ function fillList(listId, countId, array, icon, statusText) {
       participant = { fullName: item, meetName: item, subGroup: '', note: '' };
     }
     
-    const fullName = escapeHtml(participant.fullName || participant.meetName || '');
-    const meetName = escapeHtml(participant.meetName || '');
-    const subGroup = escapeHtml(participant.subGroup || '');
-    const note = escapeHtml(participant.note || '');
+    const subGroup = (participant.subGroup || '').trim();
+    const groupKey = subGroup || '_no_subgroup';
     
-    let details = [];
-    if (subGroup) details.push(`Підгрупа: ${subGroup}`);
-    if (note) details.push(`Примітка: ${note}`);
-    if (meetName && meetName !== fullName) details.push(`Логін: ${meetName}`);
-    
-    return `
-      <li class="participant-item">
-        <div class="participant-main">
-          <span class="participant-icon">${icon}</span>
-          <span class="participant-name">${fullName}</span>
-        </div>
-        ${details.length > 0 ? `
-        <div class="participant-details">
-          ${details.map(d => `<span class="detail-item">${d}</span>`).join('')}
-          <span class="participant-status">${statusText}</span>
-        </div>
-        ` : `<div class="participant-details"><span class="participant-status">${statusText}</span></div>`}
-      </li>
-    `;
-  }).join('');
+    if (!groupedBySubGroup[groupKey]) {
+      groupedBySubGroup[groupKey] = [];
+    }
+    groupedBySubGroup[groupKey].push(participant);
+  });
   
+  // Створюємо HTML з блоками для кожної підгрупи
+  let html = '';
+  
+  // Спочатку показуємо підгрупи (сортуємо за назвою)
+  const subGroupKeys = Object.keys(groupedBySubGroup).filter(k => k !== '_no_subgroup').sort();
+  
+  subGroupKeys.forEach(subGroupKey => {
+    const subGroupName = subGroupKey;
+    const participants = groupedBySubGroup[subGroupKey];
+    
+    html += `<li class="subgroup-block">
+      <div class="subgroup-header">📁 ${escapeHtml(subGroupName)} (${participants.length})</div>
+      <ul class="subgroup-participants">`;
+    
+    participants.forEach(participant => {
+      const fullName = escapeHtml(participant.fullName || participant.meetName || '');
+      const meetName = escapeHtml(participant.meetName || '');
+      const note = escapeHtml(participant.note || '');
+      
+      let details = [];
+      if (note) details.push(`Примітка: ${note}`);
+      if (meetName && meetName !== fullName) details.push(`Логін: ${meetName}`);
+      
+      html += `
+        <li class="participant-item">
+          <div class="participant-main">
+            <span class="participant-icon">${icon}</span>
+            <span class="participant-name">${fullName}</span>
+          </div>
+          ${details.length > 0 ? `
+          <div class="participant-details">
+            ${details.map(d => `<span class="detail-item">${d}</span>`).join('')}
+            <span class="participant-status">${statusText}</span>
+          </div>
+          ` : `<div class="participant-details"><span class="participant-status">${statusText}</span></div>`}
+        </li>
+      `;
+    });
+    
+    html += `</ul></li>`;
+  });
+  
+  // Потім показуємо учасників без підгрупи
+  if (groupedBySubGroup['_no_subgroup']) {
+    const participants = groupedBySubGroup['_no_subgroup'];
+    
+    participants.forEach(participant => {
+      const fullName = escapeHtml(participant.fullName || participant.meetName || '');
+      const meetName = escapeHtml(participant.meetName || '');
+      const note = escapeHtml(participant.note || '');
+      
+      let details = [];
+      if (note) details.push(`Примітка: ${note}`);
+      if (meetName && meetName !== fullName) details.push(`Логін: ${meetName}`);
+      
+      html += `
+        <li class="participant-item">
+          <div class="participant-main">
+            <span class="participant-icon">${icon}</span>
+            <span class="participant-name">${fullName}</span>
+          </div>
+          ${details.length > 0 ? `
+          <div class="participant-details">
+            ${details.map(d => `<span class="detail-item">${d}</span>`).join('')}
+            <span class="participant-status">${statusText}</span>
+          </div>
+          ` : `<div class="participant-details"><span class="participant-status">${statusText}</span></div>`}
+        </li>
+      `;
+    });
+  }
+  
+  listElement.innerHTML = html;
   countElement.innerText = array.length;
 }
 
@@ -347,4 +406,145 @@ function deleteGroup(name) {
     });
   }
 }
+
+// Експорт списків
+document.getElementById('exportBtn').addEventListener('click', () => {
+  chrome.storage.local.get(null, (items) => {
+    // Фільтруємо тільки масиви (групи)
+    const groups = {};
+    for (let key in items) {
+      if (Array.isArray(items[key])) {
+        groups[key] = items[key];
+      }
+    }
+    
+    if (Object.keys(groups).length === 0) {
+      alert("Немає груп для експорту.");
+      return;
+    }
+    
+    // Створюємо JSON з метаданими
+    const exportData = {
+      version: "3.0",
+      exportDate: new Date().toISOString(),
+      groups: groups
+    };
+    
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meet_attendance_export_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    URL.revokeObjectURL(url);
+    alert(`Експортовано ${Object.keys(groups).length} груп(и).`);
+  });
+});
+
+// Імпорт списків
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const importData = JSON.parse(event.target.result);
+      
+      // Підтримка старого формату (просто об'єкт з групами)
+      let groups;
+      if (importData.groups) {
+        groups = importData.groups;
+      } else {
+        // Старий формат - весь об'єкт є групами
+        groups = importData;
+      }
+      
+      if (!groups || typeof groups !== 'object') {
+        alert("Помилка: Невірний формат файлу.");
+        return;
+      }
+      
+      // Підраховуємо кількість груп та учасників
+      let groupCount = 0;
+      let participantCount = 0;
+      
+      for (let key in groups) {
+        if (Array.isArray(groups[key])) {
+          groupCount++;
+          participantCount += groups[key].length;
+        }
+      }
+      
+      if (groupCount === 0) {
+        alert("У файлі не знайдено груп.");
+        return;
+      }
+      
+      // Питаємо підтвердження
+      const confirmMessage = `Знайдено ${groupCount} груп(и) з ${participantCount} учасниками.\n\n` +
+                            `Оберіть дію:\n` +
+                            `OK - Додати/Оновити групи\n` +
+                            `Скасувати - Скасувати імпорт`;
+      
+      if (!confirm(confirmMessage)) {
+        e.target.value = ''; // Очищаємо input
+        return;
+      }
+      
+      // Завантажуємо групи
+      chrome.storage.local.get(null, (existingData) => {
+        let updatedCount = 0;
+        let newCount = 0;
+        
+        for (let groupName in groups) {
+          if (Array.isArray(groups[groupName])) {
+            if (existingData[groupName]) {
+              updatedCount++;
+            } else {
+              newCount++;
+            }
+          }
+        }
+        
+        // Зберігаємо групи
+        chrome.storage.local.set(groups, () => {
+          if (chrome.runtime.lastError) {
+            alert("Помилка імпорту: " + chrome.runtime.lastError.message);
+            return;
+          }
+          
+          let message = `Імпорт завершено!\n\n`;
+          if (newCount > 0) message += `Додано нових груп: ${newCount}\n`;
+          if (updatedCount > 0) message += `Оновлено існуючих груп: ${updatedCount}\n`;
+          message += `Всього учасників: ${participantCount}`;
+          
+          alert(message);
+          loadGroups();
+          e.target.value = ''; // Очищаємо input
+        });
+      });
+      
+    } catch (error) {
+      alert("Помилка читання файлу: " + error.message);
+      e.target.value = ''; // Очищаємо input
+    }
+  };
+  
+  reader.onerror = () => {
+    alert("Помилка читання файлу.");
+    e.target.value = ''; // Очищаємо input
+  };
+  
+  reader.readAsText(file);
+});
 
