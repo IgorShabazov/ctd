@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { width: 360px; font-family: sans-serif; padding: 10px; }
+    h3 { margin-top: 0; text-align: center; margin-bottom: 5px;}
+    
+    input, select { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+    button { width: 100%; padding: 10px; margin-bottom: 10px; cursor: pointer; background: #00796b; color: white; border: none; font-weight: bold; border-radius: 4px;}
+    button:hover { background: #004d40; }
+    button.delete { background: #d32f2f; margin-top: 15px; font-size: 12px; padding: 5px;}
+    
+    hr { border: 0; border-top: 1px solid #ccc; margin: 10px 0; }
+
+    .results { font-size: 13px; }
+    .category { margin-bottom: 10px; }
+    .category h4 { margin: 5px 0; font-size: 14px; border-bottom: 1px solid #eee;}
+    
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 3px 0; border-bottom: 1px solid #eee;}
+
+    /* Кольори статусів */
+    .present { color: #2e7d32; font-weight: bold; }
+    .left { color: #f57c00; font-weight: bold; }
+    .absent { color: #c62828; }
+    .guest { color: #1976d2; font-style: italic;}
+    
+    .status-msg { text-align: center; color: #666; font-size: 11px; margin-bottom: 10px;}
+  </style>
+</head>
+<body>
+  <h3>Контроль відвідуваності</h3>
+  <div class="status-msg">Панель "Люди" має бути відкрита!</div>
+
+  <input type="text" id="listName" placeholder="Назва групи (напр. 10-А)">
+  <button id="saveBtn">💾 Зберегти групу</button>
+
+  <hr>
+
+  <select id="groupSelect">
+    <option value="" disabled selected>Оберіть групу...</option>
+  </select>
+  <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+    <button id="checkBtn" style="flex: 2;">✅ Перевірити</button>
+    <button id="editBtn" style="flex: 1; background: #1976d2; display: none;">✏️ Редагувати</button> 
+  </div>
+
+  <div id="resultContainer" class="results" style="display:none;">
+    
+    <div class="category">
+      <h4>🟢 На уроці (<span id="countPresent">0</span>)</h4>
+      <ul id="listPresent" class="present"></ul>
+    </div>
+
+    <div class="category" id="blockLeft" style="display:none;">
+      <h4>⚠️ Вийшли (<span id="countLeft">0</span>)</h4>
+      <ul id="listLeft" class="left"></ul>
+    </div>
+
+    <div class="category">
+      <h4>🔴 Відсутні (<span id="countAbsent">0</span>)</h4>
+      <ul id="listAbsent" class="absent"></ul>
+    </div>
+
+    <div class="category" id="blockGuests" style="display:none;">
+      <h4>🔵 Гості (<span id="countGuests">0</span>)</h4>
+      <ul id="listGuests" class="guest"></ul> </div>
+
+  </div>
+
+  <button id="deleteBtn" class="delete" style="display:none;">Видалити групу</button>
+  <script src="popup.js"></script>
+</body>
+</html>
+
